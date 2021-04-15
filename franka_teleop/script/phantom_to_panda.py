@@ -14,12 +14,17 @@ from geometry_msgs.msg import Pose, PoseStamped, Point, Quaternion, WrenchStampe
 from jsk_rviz_plugins.msg import OverlayText
 from std_msgs.msg import Header, Bool
 from franka_example_controllers.msg import ArmsTargetPose
-
+from franka_teleop.srv import *
 
 FLAGS = flags.FLAGS
 
 flags.DEFINE_float(
     'vel_scale', 1.0, 'Velocicy scale of master/slave. Larger value means more movement in robot.')
+
+flags.DEFINE_bool(
+    'connect_pose', True, 'Set this to connect TouchUSB and Panda position command from start. Otherwise you have to call rosservice.')
+flags.DEFINE_bool(
+    'connect_force', True, 'Set this to connect TouchUSB and Panda force command from start. Otherwise you have to call rosservice.')
 
 
 def get_status_overlay(moving, arm_name):
@@ -179,7 +184,7 @@ class SingleArmHandler(object):
 
 class DualArmHandler(object):
 
-    def __init__(self, vel_scale=1.0):
+    def __init__(self, vel_scale=1.0, pose_connecting=False, froce_connecting=False):
         rospy.init_node('DualPhantomMaster')
         self.rarm_handler = SingleArmHandler(arm_name='rarm', master_dev_name='right_device', vel_scale=vel_scale)
         self.larm_handler = SingleArmHandler(arm_name='larm', master_dev_name='left_device', vel_scale=vel_scale)
@@ -189,18 +194,30 @@ class DualArmHandler(object):
         r_initial_pose, l_initial_pose = self.set_initial_pose()
         # TODO better way to initialize positon
         self.target_pose = ArmsTargetPose(right_target=r_initial_pose, left_target=l_initial_pose)
+        self.control_bilateral_srv = rospy.Service('/dual_panda/control_bilateral', ControlBilateral, self.control_bilateral)
+        self.pose_connecting = pose_connecting
+        self.force_connecting = force_connecting
 
+    def control_bilateral(self, req):
+        rospy.loginfo("Applying bilateral connection status, changing in {}...".format(req.wait))
+        rospy.sleep(req.wait)
+        self.pose_connecting =  req.pose_connecting
+        self.force_connecting = req.force_connecting
+        return ControlBilateralResponse(True)
+        
     def set_initial_pose(self):
         return self.rarm_handler.set_initial_pose(), self.larm_handler.set_initial_pose()
 
     def loop_call(self):
-        # send target pose for both arm
+        # send target pose for both arm if connected
         self.target_pose.right_target = self.rarm_handler.target_pose
         self.target_pose.left_target = self.larm_handler.target_pose
-        self.target_pub.publish(self.target_pose)
-        # apply force feedback
-        for arm in self.arms:
-            arm.apply_target_force()
+        if self.pose_connecting:
+            self.target_pub.publish(self.target_pose)
+        # apply force feedback if connected
+        if self.force_connecting:
+            for arm in self.arms:
+                arm.apply_target_force()
         # recover error
         if self.rarm_handler.has_error or self.larm_handler.has_error:
             rospy.loginfo("Detected error in controller, recovering...")
@@ -219,7 +236,9 @@ class DualArmHandler(object):
 
 
 def main(argv):
-    node = DualArmHandler(vel_scale=FLAGS.vel_scale)
+    node = DualArmHandler(vel_scale=FLAGS.vel_scale,
+                          pose_connecting=FLAGS.connect_pose,
+                          force_connecting=FLAGS.connect_force)
     node.run()
 
 

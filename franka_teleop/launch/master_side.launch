@@ -19,7 +19,6 @@
       <param name="units" value="$(arg units)"/>
     </node>
   </group>
-
   <group ns="right_device">
     <node name="omni_state" pkg="omni_common" type="omni_state" output="screen">
       <param name="device_name" value="Right Device"/>
@@ -34,4 +33,11 @@
   <!-- visualization -->
   <!-- -\-layout $(find my_package)/config/my_plotjuggler_layout.xml" -->
   <node pkg="rviz" type="rviz" output="screen" name="rviz" args="-d $(find franka_teleop)/config/dual_panda.rviz" if="$(arg rviz)" />
+
+  <!-- start MIDI controller-->
+  <node pkg="jsk_teleop_joy" type="midi_config_player.py"
+        output="screen" name="midi_controller"
+        args="$(find jsk_teleop_joy)/configs/b_control.yaml">
+    <remap from="/joy" to="/midi_controller/joy" />
+  </node>
 </launch>
