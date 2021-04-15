@@ -31,7 +31,7 @@ def get_status_overlay(moving, arm_name):
     text = OverlayText()
     text.width = 400
     text.height = 600
-    text.left = 10 if arm_name == 'larm' else 3000
+    text.left = 10 if arm_name == 'larm' else 600
     text.top = 10
     text.text_size = 25
     text.line_width = 2
