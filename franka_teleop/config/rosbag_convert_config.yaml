@@ -1,0 +1,34 @@
+topics:
+  /dual_panda/joint_states:
+    - 'position'
+  /dual_panda/rarm_state_controller/F_ext:
+    - 'wrench.force.x'
+    - 'wrench.force.y'
+    - 'wrench.force.z'
+  /dual_panda/larm_state_controller/F_ext:
+    - 'wrench.force.x'
+    - 'wrench.force.y'
+    - 'wrench.force.z'
+  /dual_panda/dual_arm_cartesian_pose_controller/arms_target_pose:
+    - 'right_target.pose.position.x'
+    - 'right_target.pose.position.y'
+    - 'right_target.pose.position.z'
+    - 'right_target.pose.orientation.x'
+    - 'right_target.pose.orientation.y'
+    - 'right_target.pose.orientation.z'
+    - 'right_target.pose.orientation.w'
+    - 'left_target.pose.position.x'
+    - 'left_target.pose.position.y'
+    - 'left_target.pose.position.z'
+    - 'left_target.pose.orientation.x'
+    - 'left_target.pose.orientation.y'
+    - 'left_target.pose.orientation.z'
+    - 'left_target.pose.orientation.w'
+    
+input:
+  - '/dual_panda/joint_states'
+  - '/dual_panda/rarm_state_controller/F_ext'
+  - '/dual_panda/larm_state_controller/F_ext'
+  - '/dual_panda/dual_arm_cartesian_pose_controller/arms_target_pose'
+output:
+  - '/dual_panda/dual_arm_cartesian_pose_controller/arms_target_pose'

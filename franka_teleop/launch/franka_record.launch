@@ -8,6 +8,7 @@
   <arg name="save_all_image" default="false" />
   <arg name="save_multisense" default="false" />
   <arg name="other_topics" default=""/>
+  <arg name="quiet" default="true"/>
   <arg name="machine" default="localhost" />
 
   <include file="$(find jsk_data)/launch/common_record.launch">
@@ -17,11 +18,35 @@
     <arg name="save_robot_model" value="$(arg save_robot_model)" />
     <arg name="save_all_image" value="$(arg save_all_image)" />
     <arg name="save_multisense" value="$(arg save_multisense)" />
+    <arg if = "$(arg quiet)" name="other_options" value="-q"/>
+    <!-- <arg name="other_topics" value="$(arg other_topics) -->
+    <!--                                 /camera/rgb/camera_info -->
+    <!--                                 /camera/depth/camera_info -->
+    <!--                                 /camera/rgb/image_raw/compressed -->
+    <!--                                 /camera/depth/image_raw/compressedDepth -->
+    <!--                                 /dual_panda/larm/status_overlay -->
+    <!--                                 /dual_panda/rarm/status_overlay -->
+    <!--                                 /dual_panda/larm/franka_gripper/joint_states -->
+    <!--                                 /dual_panda/rarm/franka_gripper/joint_states -->
+    <!--                                 /dual_panda/dual_arm_cartesian_pose_controller/arms_target_pose -->
+    <!--                                 /dual_panda/dual_arm_cartesian_pose_controller/left_frame -->
+    <!--                                 /dual_panda/dual_arm_cartesian_pose_controller/right_frame -->
+    <!--                                 /dual_panda/joint_states -->
+    <!--                                 /dual_panda/larm_state_controller/F_ext -->
+    <!--                                 /dual_panda/larm_state_controller/franka_states -->
+    <!--                                 /dual_panda/larm_state_controller/joint_states -->
+    <!--                                 /dual_panda/larm_state_controller/joint_states_desired -->
+    <!--                                 /dual_panda/rarm_state_controller/F_ext -->
+    <!--                                 /dual_panda/rarm_state_controller/franka_states -->
+    <!--                                 /dual_panda/rarm_state_controller/joint_states -->
+    <!--                                 /dual_panda/rarm_state_controller/joint_states_desired -->
+    <!--                                 /tf -->
+    <!--                                 /tf_static -->
+    <!--                                 " /> -->
     <arg name="other_topics" value="$(arg other_topics)
                                     /camera/rgb/camera_info
                                     /camera/depth/camera_info
                                     /camera/rgb/image_raw/compressed
-                                    /camera/depth/image_raw/compressedDepth
                                     /dual_panda/larm/status_overlay
                                     /dual_panda/rarm/status_overlay
                                     /dual_panda/larm/franka_gripper/joint_states
