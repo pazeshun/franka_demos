@@ -29,6 +29,5 @@ input:
   - '/dual_panda/joint_states'
   - '/dual_panda/rarm_state_controller/F_ext'
   - '/dual_panda/larm_state_controller/F_ext'
-  - '/dual_panda/dual_arm_cartesian_pose_controller/arms_target_pose'
 output:
   - '/dual_panda/dual_arm_cartesian_pose_controller/arms_target_pose'
