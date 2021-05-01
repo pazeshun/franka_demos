@@ -10,7 +10,7 @@
 
   (setq *robot* *dual_panda*)
 
-  (send *robot* :angle-vector init-1)
+  (send *robot* :angle-vector init-2)
   (when (send *ri* :check-error)
     (send *ri* :recover-error))
   (send *ri* :angle-vector (send *robot* :angle-vector) 3000)

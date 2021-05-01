@@ -19,7 +19,7 @@ from franka_teleop.srv import *
 FLAGS = flags.FLAGS
 
 flags.DEFINE_float(
-    'vel_scale', 1.0, 'Velocicy scale of master/slave. Larger value means more movement in robot.')
+    'vel_scale', 1.5, 'Velocicy scale of master/slave. Larger value means more movement in robot.')
 
 flags.DEFINE_bool(
     'connect_pose', True, 'Set this to connect TouchUSB and Panda position command from start. Otherwise you have to call rosservice.')
@@ -94,11 +94,11 @@ class SingleArmHandler(object):
         status_overlay_topic = '/{}/{}/status_overlay'.format(self.robot_id, self.arm_name)
         self.current_arm_frame_sub = rospy.Subscriber(current_frame_topic, PoseStamped, self.current_frame_cb)
         rospy.wait_for_message(current_frame_topic, PoseStamped)
-        self.target_pose = self.set_initial_pose()
 
         self.device_state_sub = rospy.Subscriber(dev_topic, OmniState, self.device_state_sub)
         self.panda_force_sub = rospy.Subscriber(force_topic, WrenchStamped, self.force_cb)
         self.error_topic = rospy.Subscriber(error_topic, Bool, self.has_error_cb)
+        self.target_pose = self.set_initial_pose(no_ask=True)
         
         self.single_target_pose_pub = rospy.Publisher(pose_target_pub_topic, PoseStamped, queue_size=1)
         self.force_feedback_pub = rospy.Publisher(force_pub_topic, OmniFeedback, queue_size=1)
@@ -154,8 +154,9 @@ class SingleArmHandler(object):
     def apply_target_force(self):
         self.force_feedback_pub.publish(self.target_force)
 
-    def set_initial_pose(self):
-        res = raw_input('Press Enter to set this {} configuration as initial position [Enter]'.format(self.arm_name))
+    def set_initial_pose(self, no_ask=False):
+        if not no_ask:
+            res = raw_input('Press Enter to set this {} configuration as initial position [Enter]'.format(self.arm_name))
         self.current_frame.header.frame_id = '{}_link0'.format(self.arm_name)
         return self.current_frame
 
@@ -184,36 +185,42 @@ class SingleArmHandler(object):
 
 class DualArmHandler(object):
 
-    def __init__(self, vel_scale=1.0, pose_connecting=False, froce_connecting=False):
+    def __init__(self, vel_scale=1.0, pose_connecting=False, force_connecting=False):
         rospy.init_node('DualPhantomMaster')
+        self.pose_connecting = pose_connecting
+        self.force_connecting = force_connecting        
         self.rarm_handler = SingleArmHandler(arm_name='rarm', master_dev_name='right_device', vel_scale=vel_scale)
         self.larm_handler = SingleArmHandler(arm_name='larm', master_dev_name='left_device', vel_scale=vel_scale)
         self.arms = [self.rarm_handler, self.larm_handler]
         self.target_pub = rospy.Publisher('/dual_panda/dual_arm_cartesian_pose_controller/arms_target_pose', ArmsTargetPose, queue_size=1)
         self.recover_error_server = actionlib.SimpleActionClient('/dual_panda/error_recovery', franka_msgs.msg.ErrorRecoveryAction)
         r_initial_pose, l_initial_pose = self.set_initial_pose()
-        # TODO better way to initialize positon
         self.target_pose = ArmsTargetPose(right_target=r_initial_pose, left_target=l_initial_pose)
         self.control_bilateral_srv = rospy.Service('/dual_panda/control_bilateral', ControlBilateral, self.control_bilateral)
-        self.pose_connecting = pose_connecting
-        self.force_connecting = force_connecting
 
     def control_bilateral(self, req):
         rospy.loginfo("Applying bilateral connection status, changing in {}...".format(req.wait))
         rospy.sleep(req.wait)
         self.pose_connecting =  req.pose_connecting
         self.force_connecting = req.force_connecting
+        if req.reset_phantom:
+            r_initial_pose, l_initial_pose = self.set_initial_pose()
+            self.target_pose = ArmsTargetPose(right_target=r_initial_pose, left_target=l_initial_pose)
         return ControlBilateralResponse(True)
         
     def set_initial_pose(self):
-        return self.rarm_handler.set_initial_pose(), self.larm_handler.set_initial_pose()
+        return self.rarm_handler.set_initial_pose(no_ask=True), self.larm_handler.set_initial_pose(no_ask=True)
 
     def loop_call(self):
         # send target pose for both arm if connected
-        self.target_pose.right_target = self.rarm_handler.target_pose
-        self.target_pose.left_target = self.larm_handler.target_pose
         if self.pose_connecting:
+            self.target_pose.right_target = self.rarm_handler.target_pose
+            self.target_pose.left_target = self.larm_handler.target_pose
             self.target_pub.publish(self.target_pose)
+        else:
+            self.rarm_handler.target_pose = self.rarm_handler.set_initial_pose(no_ask=True)
+            self.larm_handler.target_pose = self.larm_handler.set_initial_pose(no_ask=True)
+
         # apply force feedback if connected
         if self.force_connecting:
             for arm in self.arms:
