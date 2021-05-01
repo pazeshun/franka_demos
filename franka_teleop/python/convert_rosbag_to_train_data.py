@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env pytho
 import os
 import rosbag
 import cv2
@@ -9,7 +9,6 @@ from absl import flags
 import yaml
 import pickle
 import pathlib2
-
 
 FLAGS = flags.FLAGS
 
@@ -29,7 +28,7 @@ def check_and_mkdir(dir_name):
         os.makedirs(dir_name)
 
 
-def save_img_msg(msg, save_file_name, size=(128, 128)):
+def save_img_msg(msg, save_file_name, size=(256, 256)):
     # TODO: fixed image size
     bridge = CvBridge()
     cv_img = bridge.compressed_imgmsg_to_cv2(msg)
@@ -39,7 +38,7 @@ def save_img_msg(msg, save_file_name, size=(128, 128)):
     cv2.imwrite(save_file_name, cv_img)
 
 
-def convert_one_rosbag(bag_file, target_dir, cfg_file):
+def convert_rosbag(bag_file, target_dir, cfg_file):
     # bag_file = FLAGS.rosbag
     # target_dir = FLAGS.target_dir
     check_and_mkdir(target_dir)
@@ -83,13 +82,15 @@ def convert_one_rosbag(bag_file, target_dir, cfg_file):
                 save_topic[tp] = False
         for k, v in input_data.items():
             if len(v) < img_count:
-                input_data[k] += v[-1] * (img_count - len(v))
+                for _ in range((img_count - len(v))):
+                    input_data[k].append(v[-1])
             if len(v) > img_count:
                 input_data[k] = input_data[k][:img_count]
 
         for k, v in output_data.items():
             if len(v) < img_count:
-                output_data[k] += v[-1] * (img_count - len(v))
+                for _ in range((img_count - len(v))):
+                    output_data[k].append(v[-1])
             if len(v) > img_count:
                 output_data[k] = output_data[k][:img_count]
         for k, v in input_data.items():
@@ -110,8 +111,8 @@ def main(argv):
         f_lsit = f.as_posix().split('/')
         bag_count = f_lsit[-1][:3]
         variation = f_lsit[-3]
-        target_dir = os.path.join(target_dir_base, variation, bag_count)
-        convert_one_rosbag(f.as_posix(), target_dir, config_file)
+        target_dir = os.path.join(target_dir_base, 'default', variation, 'episodes', bag_count)
+        convert_rosbag(f.as_posix(), target_dir, config_file)
 
 if __name__ == '__main__':
     app.run(main)
