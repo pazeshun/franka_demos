@@ -58,6 +58,7 @@ find_package(catkin REQUIRED
 add_service_files(
   FILES
   ControlBilateral.srv
+  CommandImitationAgent.srv
   )
 
 ## Generate actions in the 'action' folder

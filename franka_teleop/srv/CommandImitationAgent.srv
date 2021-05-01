@@ -1,0 +1,7 @@
+string command_type  # eihter 'reset', 'act', 'get_trajectory'
+float64[] observation
+int64 trajectory_steps
+---
+bool ok
+float64[] action
+std_msgs/Float64MultiArray trajectory
