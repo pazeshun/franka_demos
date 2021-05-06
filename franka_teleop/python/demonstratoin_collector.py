@@ -27,7 +27,20 @@ from trajectory_msgs.msg import JointTrajectoryPoint
 INITIAL_X_RANGE = (0.0, 0.7)     # [m]
 INITIAL_Y_RANGE = (-0.35, 0.35)  # [m]
 INITIAL_Z_RANGE = (0.0, 0.7)     # [m]
-JOINT_TRAJECTORY_JOINT_NAME = ["rarm_joint1", "rarm_joint2", "rarm_joint3", "rarm_joint4", "rarm_joint5", "rarm_joint6", "rarm_joint7", "larm_joint1", "larm_joint2", "larm_joint3", "larm_joint4", "larm_joint5", "larm_joint6", "larm_joint7"]
+JOINT_TRAJECTORY_JOINT_NAME = ["rarm_joint1",
+                               "rarm_joint2",
+                               "rarm_joint3",
+                               "rarm_joint4",
+                               "rarm_joint5",
+                               "rarm_joint6",
+                               "rarm_joint7",
+                               "larm_joint1",
+                               "larm_joint2",
+                               "larm_joint3",
+                               "larm_joint4",
+                               "larm_joint5",
+                               "larm_joint6",
+                               "larm_joint7"]
 
 
 def get_initial_pose():
