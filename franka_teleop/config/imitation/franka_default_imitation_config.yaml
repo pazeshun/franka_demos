@@ -28,15 +28,18 @@ topics:
     - 'left_target.pose.orientation.w'
 
 ## Specity topics used as input/output of the model
+## Each element must contain [topic name, conversion_function]
+## The data will be the list of [conversion_func(topic_data), ...]
 input:
-  - '/dual_panda/joint_states'
+  - ['/dual_panda/joint_states', 'identity']
+  # Uncomment below to include include force information
   # - '/dual_panda/rarm_state_controller/F_ext'
   # - '/dual_panda/larm_state_controller/F_ext'
 output:
-  ## Currently you must execlude data mentioned in 'input' section,
-  ## Since the input vectors are also predicted in traning time. 
-  - '/dual_panda/dual_arm_cartesian_pose_controller/arms_target_pose'
-  - 'GRASP_ARRAY'  # Special types of output, this is [0/1, 0/1] array indicating [right_open, left_open] (0 means clsoed)
+  - ['/dual_panda/joint_states', 'identity']
+  # Not speficying converting function alywas means identity conversion    
+  - ['/dual_panda/dual_arm_cartesian_pose_controller/arms_target_pose']
+  - ['/dual_panda/joint_states', 'grippers_open']
 
 # Action topic, TODO not used correcctly
 action:
