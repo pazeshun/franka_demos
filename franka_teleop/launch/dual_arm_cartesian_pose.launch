@@ -8,6 +8,7 @@
   <arg name="rarm_ip" default="172.16.0.2"/>
   <arg name="larm_ip" default="172.16.1.2"/>
   <arg name="robot_ips" value="{rarm/robot_ip: $(arg rarm_ip), larm/robot_ip: $(arg larm_ip)}" />
+  <!-- <arg name="start_bilateral" default="false"/> -->
   <arg name="start_bilateral" default="false"/>
   <!-- controller for arms -->
   <include file="$(find franka_control)/launch/franka_combined_control.launch" >

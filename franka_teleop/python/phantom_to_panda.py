@@ -233,7 +233,7 @@ class DualArmHandler(object):
 
     def run(self):
         rospy.loginfo("Start looping")
-        r = rospy.Rate(1000)
+        r = rospy.Rate(50)
         while not rospy.is_shutdown():
             self.loop_call()
             r.sleep()
