@@ -17,6 +17,13 @@ import actionlib
 from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
 from trajectory_msgs.msg import JointTrajectoryPoint
 
+try:
+    import conversion_functions
+except ImportError:
+    sys.path.append(rospkg.RosPack().get_path('franka_teleop'))
+    import conversion_functions
+
+
 JOINT_TRAJECTORY_JOINT_NAME = ["rarm_joint1",
                                "rarm_joint2",
                                "rarm_joint3",
@@ -35,7 +42,7 @@ JOINT_TRAJECTORY_JOINT_NAME = ["rarm_joint1",
 
 class ImitationTaskExecuter(object):
 
-    def __init__(self, initial_pose_file, topic_cfg_file, fps=50):
+    def __init__(self, initial_pose_file, topic_cfg_file, fps=30, command_real=False):
         rospy.init_node('ImitationTaskExecuter')
         self.initial_js = pickle.load(open(initial_pose_file, 'rb'))
         self.imitation_agent_srv = rospy.ServiceProxy('/command_imitation_agent', CommandImitationAgent)
@@ -45,7 +52,8 @@ class ImitationTaskExecuter(object):
         input_topic_list = []
         self.input_topitc_dict = {}
         self.input_data = {}
-        for topic in self.cfg['input']:
+        for topic_rule in self.cfg['input']:
+            topic = topic_rule[0]
             self.input_topitc_dict[topic] = rostopic.get_topic_type(topic)[0]
             input_topic_list.append(message_filters.Subscriber(topic,
                                                                rostopic.get_topic_class(topic)[0]))
@@ -67,20 +75,23 @@ class ImitationTaskExecuter(object):
         self.act_client = actionlib.SimpleActionClient('/dual_panda/dual_panda_effort_joint_trajectory_controller/follow_joint_trajectory',
                                                        FollowJointTrajectoryAction)
         # self.action_pubs = [rospy.Publisher('{}_test'.format(topic), rostopic.get_topic_class(topic)[0]) for topic in self.cfg['action']]
-        self.l_test_pub = rospy.Publisher('/inference/right_target_inference', PoseStamped)
-        self.r_test_pub = rospy.Publisher('/inference/left_target_inference', PoseStamped)
-        self.action_pubs = [rospy.Publisher('/dual_panda/dual_arm_cartesian_pose_controller/arms_target_pose', ArmsTargetPose), 'GRASP_ARRAY']
+        self.l_test_pub = rospy.Publisher('/inference/right_target_inference', PoseStamped, queue_size=1)
+        self.r_test_pub = rospy.Publisher('/inference/left_target_inference', PoseStamped, queue_size=1)
+        self.action_pubs = [rospy.Publisher('/dual_panda/dual_arm_cartesian_pose_controller/arms_target_pose', ArmsTargetPose, queue_size=1), 'GRASP_ARRAY']
         rospy.wait_for_service('/dual_panda/controller_manager/switch_controller')
         gripper_topics = ['/dual_panda/rarm/franka_gripper/grasp', '/dual_panda/larm/franka_gripper/grasp']
         self.gripper_clients = [actionlib.SimpleActionClient(gripper_topics[0], franka_gripper.msg.GraspAction),
                                 actionlib.SimpleActionClient(gripper_topics[1], franka_gripper.msg.GraspAction)]
         ok = [c.wait_for_server() for c in self.gripper_clients]
+        
+        self.grippers_status = [True, True]   # right_gripper_open, left_gripper_open        
+        for arm_id in range(2):
+            self.open_gripper(arm_id=arm_id)
 
-        # Initialize member variabels
+        # Initialize other member variabels
         self.input_vector = None
         self.input_images = None
-        self.right_gripper_open = True
-        self.left_gripper_open = True
+        self.command_real = command_real
 
     def input_topic_cb(self, *msgs):
         input_vector = []
@@ -90,8 +101,10 @@ class ImitationTaskExecuter(object):
             if message_type == 'sensor_msgs/Image':
                 input_images.append(msg)
                 break
-            topic = self.cfg['input'][i]
-            raw_input_vector = []
+            rule = self.cfg['input'][i]
+            topic, func_name = rule
+            func = getattr(conversion_functions, func_name)            
+            raw_input_vector = []            
             for attr in self.cfg['topics'][topic]:
                 d = eval('msg.{}'.format(attr))
                 if type(d) == tuple:
@@ -99,7 +112,7 @@ class ImitationTaskExecuter(object):
                 else:
                     d = [d]
                 raw_input_vector += d
-            input_vector += raw_input_vector
+            input_vector += func(raw_input_vector)
         self.input_vector = input_vector
         self.input_images = input_images
 
@@ -113,14 +126,11 @@ class ImitationTaskExecuter(object):
                 grippers_open = action[-2:]
                 # TODO smater way
                 # print(grippers_open)
-                if grippers_open[0] > 0.5 and not self.right_gripper_open:
-                    self.open_gripper('r')
-                if grippers_open[1] > 0.5 and not self.left_gripper_open:
-                    self.open_gripper('l')
-                if grippers_open[0] <= 0.5 and self.right_gripper_open:
-                    self.close_gripper('r')
-                if grippers_open[0] <= 0.5 and self.left_gripper_open:
-                    self.close_gripper('l')
+                for i in range(2):
+                    if grippers_open[i] > 0.01 and not self.grippers_status[i]:
+                        self.open_gripper(i)
+                    if grippers_open[i] <= 0.01 and self.grippers_status[i]:
+                        self.close_gripper(i)
                 break   # TODO currently we assume grasps are located at the end of vector
             if str(msg._type) == 'franka_example_controllers/ArmsTargetPose':
                 msg.right_target.header.frame_id = 'rarm_link0'
@@ -130,32 +140,38 @@ class ImitationTaskExecuter(object):
                 counter += 1
             self.r_test_pub.publish(msg.right_target)
             self.l_test_pub.publish(msg.left_target)
-            # pub.publish(msg)
 
-    def open_gripper(self, arm):
-        if arm == 'r':
-            self.right_gripper_open = True
-            ind = 0
-        else:
-            self.left_gripper_open = True
-            ind = 1
-        rospy.loginfo('Open {}arm'.format(arm))
-        epsilon = GraspEpsilon(inner=0.01, outer=0.01)
-        goal = franka_gripper.msg.GraspGoal(width=0.08, speed=1, force=10, epsilon=epsilon)
-        self.gripper_clients[ind].send_goal(goal)
+            # umcomment this to move arm
+            if self.command_real:
+                pub.publish(msg)
+
+    def control_gripper(self, arm_id=None, arm=None, command=''):
+        assert arm is not None or  arm_id is not None, 'Either arm or arm_id must be specified.'
+        if arm_id is None:
+            if arm.startswith('r'):
+                arm_id = 0
+            elif arm.startswith('l'):
+                arm_id = 1
+            else:
+                raise AttributeError('Unknown arm type {}'.format(arm))
+        assert command == 'open' or command == 'close', 'Command must be either open or close'
+        rospy.loginfo('{} {}arm'.format(command, arm_id))
+        if command == 'open':
+            epsilon = GraspEpsilon(inner=0.01, outer=0.01)
+            goal = franka_gripper.msg.GraspGoal(width=0.08, speed=1, force=10, epsilon=epsilon)
+            self.gripper_clients[arm_id].send_goal(goal)
+            self.grippers_status[arm_id] = True
+        elif command == 'close':
+            epsilon = GraspEpsilon(inner=0.01, outer=0.01)
+            goal = franka_gripper.msg.GraspGoal(width=0, speed=1, force=140, epsilon=epsilon)
+            self.gripper_clients[arm_id].send_goal(goal)
+            self.grippers_status[arm_id] = False
+
+    def open_gripper(self, arm_id=None, arm=None):
+        self.control_gripper(arm_id, arm, 'open')
         
-    def close_gripper(self, arm):
-        if arm == 'r':
-            self.right_gripper_open = False
-            ind = 0
-        else:
-            self.left_gripper_open = False
-            ind = 1
-        rospy.loginfo('Clsoe {}arm'.format(arm))            
-        # TODO, currently max force 140[N] is applied
-        epsilon = GraspEpsilon(inner=0.01, outer=0.01)
-        goal = franka_gripper.msg.GraspGoal(width=0, speed=1, force=140, epsilon=epsilon)
-        self.gripper_clients[ind].send_goal(goal)
+    def close_gripper(self, arm_id=None, arm=None):
+        self.control_gripper(arm_id, arm, 'close')
         
 
     def move_to_initial_pose(self, target_js=None):
@@ -206,6 +222,10 @@ class ImitationTaskExecuter(object):
                                                input_vector=self.input_vector,
                                                input_images=self.input_images)
             res = self.imitation_agent_srv(req)
+            print('end_prob = {}\t\t calc_time = {}'.format(res.end_prob, res.calc_time))
+            if res.end_prob > 0.05:
+                rospy.loginfo('End probability of {} detected, finishing...'.format(res.end_prob))
+                break
             self.execute_action(res.action)
             rospy.Rate(self.fps).sleep()
             counter += 1
@@ -219,10 +239,12 @@ class ImitationTaskExecuter(object):
 
 
 def main():
-    initial_pose_file = '/home/ykawamura/jsk_imitation/data/yojo/2021-04-30-00-16-19/initial_joint_state.pkl'
-    topic_cfg_file = '/home/ykawamura/ros/ws_franka/src/franka_demos/franka_teleop/config/rosbag_convert_config.yaml'
+    command_real = True
+    initial_pose_file = '/home/ykawamura/jsk_imitation/data/pick/2021-05-07-12-04-45/initial_joint_state.pkl'
+    topic_cfg_file = '/home/ykawamura/ros/ws_franka/src/franka_demos/franka_teleop/config/imitation/franka_default_imitation_config.yaml'
     node = ImitationTaskExecuter(initial_pose_file=initial_pose_file,
-                                 topic_cfg_file=topic_cfg_file)
+                                 topic_cfg_file=topic_cfg_file,
+                                 command_real=command_real)
     rospy.loginfo('starting inference...')
     rospy.wait_for_service('/command_imitation_agent')
     node.move_to_initial_pose()

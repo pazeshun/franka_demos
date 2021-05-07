@@ -26,7 +26,7 @@ flags.DEFINE_string(
 flags.DEFINE_string(
     'vae_path', None, 'path of VAE model for image processing')
 flags.DEFINE_integer(
-    'action_dim', 14, 'length of action dimention')
+    'action_dim', 16, 'length of action dimention')
 
 
 class ImitationAgentServer:
@@ -58,10 +58,11 @@ class ImitationAgentServer:
             obs = self._process_observation(req.input_vector,
                                             req.input_images)
             
-            action = self.act(obs)
+            action, end_prob = self.act(obs)
             return CommandImitationAgentResponse(ok=True,
                                                  action=action,
-                                                 calc_time=time.time()-start)
+                                                 calc_time=time.time()-start,
+                                                 end_prob=end_prob)
         elif req.command_type == 'get_trajectory':
             obs = self._process_observation(req.input_vector,
                                             req.input_images)
@@ -85,7 +86,7 @@ class ImitationAgentServer:
             # Output is purely actions & flag.
             self.action = pred[:-1]
 
-        return self.action
+        return self.action, pred[-1]  # action and end_prob
 
     def reset(self):
         self.internal_count = 0
@@ -156,16 +157,16 @@ class ImitationAgentServer:
             img = img/255.0
             emb = self.image_encorder([img])  # extract latent vector form image
             embs.append(np.array(emb).flatten())
-        return np.concatenate((input_vector, np.concatenate(embs), [0]))
+        return np.concatenate((np.concatenate(embs), input_vector, [0]))
 
     def run(self):
         rospy.spin()
 
 
 def main(argv):
-    node = ImitationAgentServer(lstm_path='/home/ykawamura/integral_models/rlbench_rlbench_yojo/default_f_128x128_0epis/image_conv_vae_8dim_stride2_fc_bce_1.0kl/adam.001_itdecay1k/model_epoch0400_4.71e-01_4.72e-01/maxlen350_pred_shift3_emb-ja-go_emb-ja-go_noise-0.001-0.001_18epis/lstm_256units_split-mse_relu_n_lstm_layers_2_n_dense_layers_2_emb_loss_scale0.001/adam.001_itdecay1k_l2wreg1e-05/model_last_epoch1213.h5',
-                                image_vae_path='/home/ykawamura/integral_models/rlbench_rlbench_yojo/default_f_128x128_0epis/image_conv_vae_8dim_stride2_fc_bce_1.0kl/adam.001_itdecay1k/model_epoch0400_4.71e-01_4.72e-01.h5',
-                                action_dim=14)
+    node = ImitationAgentServer(lstm_path='/home/ykawamura/integral_models/rlbench_pick_data/default_f_128x128_0epis/image_conv_vae_16dim_stride2_fc_bce_1.0kl/adam.001_itdecay1k/model_epoch0800_4.57e-01_4.59e-01/maxlen300_pred_shift1_emb-ja-go_emb-ja-go_noise-0.001-0.001_18epis/lstm_256units_split-mse_relu_n_lstm_layers_2_n_dense_layers_2_emb_loss_scale0.001/adam.001_itdecay1k_l2wreg1e-05/model_last_epoch1867.h5',
+                                image_vae_path='/home/ykawamura/integral_models/rlbench_pick_data/default_f_128x128_0epis/image_conv_vae_16dim_stride2_fc_bce_1.0kl/adam.001_itdecay1k/model_epoch0800_4.57e-01_4.59e-01.h5',
+                                action_dim=16)
     node.run()
 
 

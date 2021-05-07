@@ -5,6 +5,7 @@ int64 trajectory_steps
 ---
 bool ok
 float64 calc_time
+float64 end_prob
 float64[] action
 std_msgs/Float64MultiArray trajectory
 
