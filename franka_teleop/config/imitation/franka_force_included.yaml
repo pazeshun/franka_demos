@@ -33,9 +33,9 @@ topics:
 input:
   - ['/dual_panda/joint_states', 'identity']
   # Uncomment below to include include force information
-  # - ['/dual_panda/dual_arm_cartesian_pose_controller/arms_target_pose']
-  # - '/dual_panda/rarm_state_controller/F_ext'
-  # - '/dual_panda/larm_state_controller/F_ext'
+  - ['/dual_panda/dual_arm_cartesian_pose_controller/arms_target_pose', 'identity']
+  - ['/dual_panda/rarm_state_controller/F_ext', 'identity']
+  - ['/dual_panda/larm_state_controller/F_ext', 'identity']
 output:
   - ['/dual_panda/joint_states', 'identity']
   # Not speficying converting function alywas means identity conversion    
