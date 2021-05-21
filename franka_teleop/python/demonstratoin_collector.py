@@ -148,7 +148,7 @@ class InitializeSetup(smach.State):
             initial_js = self.cur_js
             self.dump_initial_pose_to_yaml(self.save_dir_base, initial_js)
         else:
-            initial_js = pickle.load(open(initial_pose_file, 'rb'))
+            initial_js = pickle.load(open(self.initial_pose_file, 'rb'))
 
     def joint_states_cb(self, msg):
         self.cur_js = msg
@@ -285,10 +285,10 @@ class TeachMotion(smach.State):
 
 def main():
     rospy.init_node('smach_somple1')
-
+    initial_file = '/tmp/pick_2/2021-05-07-22-51-18/initial_joint_state.pkl'
     sm_top = smach.StateMachine(outcomes=['all_done'])
     with sm_top:
-        smach.StateMachine.add('InitializeSetup', InitializeSetup(), transitions={'done':'TeachMotion'})
+        smach.StateMachine.add('InitializeSetup', InitializeSetup(initial_pose_file=initial_file), transitions={'done':'TeachMotion'})
         smach.StateMachine.add('TeachMotion', TeachMotion(), transitions={'done':'TeachMotion', 'exit': 'all_done'})
     outcome = sm_top.execute()
 
