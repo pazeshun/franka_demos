@@ -4,6 +4,7 @@ Input: diretory that contain rosbag file for the same task.
 Ouput: directory that has dataset for imitation lering
 """
 import os
+from multiprocessing import Pool
 import sys
 import numpy as np
 import rosbag
@@ -16,6 +17,7 @@ import yaml
 import pickle
 import pathlib2
 import rospkg
+import time
 
 try:
     import conversion_functions
@@ -32,9 +34,10 @@ flags.DEFINE_string(
     'target_dir', 'None', 'Target dir_name')
 flags.DEFINE_string(
     'config', 'None', 'config file')
-
 flags.DEFINE_integer(
     'im_size', 128, 'Resize image to (im_size, im_sizse)')
+flags.DEFINE_integer(
+    'multiprocess', 16, 'Number of multiprocessing')
 
 
 def check_and_mkdir(dir_name):
@@ -52,7 +55,11 @@ def save_img_msg(msg, save_file_name, size=(256, 256)):
     cv2.imwrite(save_file_name, cv_img)
 
 
-def convert_rosbag(bag_file, target_dir, cfg_file):
+def convert_rosbag(arg):  # bag_file, target_dir, cfg_file
+    ##
+    ## TODO: this process needs to be vectorized
+    ##
+    bag_file, target_dir, cfg_file = arg
     check_and_mkdir(target_dir)
     check_and_mkdir(os.path.join(target_dir, 'front_rgb'))  # TODO fix ahrd coding
     cfg = yaml.safe_load(open(cfg_file, 'rb'))
@@ -63,8 +70,8 @@ def convert_rosbag(bag_file, target_dir, cfg_file):
     msg = 'cfg: {}'.format(cfg)
     with rosbag.Bag(bag_file, 'r') as bag:
         total_time = bag.get_end_time() - bag.get_start_time()
-        print('converting {}...'.format(bag_file))
-        print('total time {}'.format(total_time))
+        # print('converting {}...'.format(bag_file))
+        # print('total time {}'.format(total_time))
         for topic, msg, t in bag.read_messages(topics=read_topics):
             if topic == '/camera/rgb/image_raw/compressed':
                 save_file_name = os.path.join(target_dir, "front_rgb", "{}.png".format(img_count))
@@ -116,25 +123,31 @@ def convert_rosbag(bag_file, target_dir, cfg_file):
     print('seq_len, input_dim, outpu_dim : {}, {}, {}'.format(input_data.shape[0],
                                                               input_data.shape[1],
                                                               output_data.shape[1]))
-    with open(os.path.join(target_dir, 'data.pkl'), 'wb') as f:
-        pickle.dump(data, f)
-    with open(os.path.join(target_dir, 'input_data.pkl'), 'wb') as f:
-        pickle.dump(input_data, f)
-    with open(os.path.join(target_dir, 'output_data.pkl'), 'wb') as f:
-        pickle.dump(output_data, f)
+    # with open(os.path.join(target_dir, 'data.pkl'), 'wb') as f:
+    #     pickle.dump(data, f)
+    # with open(os.path.join(target_dir, 'input_data.pkl'), 'wb') as f:
+    #     pickle.dump(input_data, f)
+    # with open(os.path.join(target_dir, 'output_data.pkl'), 'wb') as f:
+    #     pickle.dump(output_data, f)
 
 
 def main(argv):
     target_dir_base = FLAGS.target_dir
     config_file = FLAGS.config
     p = pathlib2.Path(FLAGS.rosbag_dir)
+    arg_list = []
+    n_multiprocess = FLAGS.multiprocess
+    
     for i, f in enumerate(p.glob('*/rosbag/*bag')):
         print('opening {}th rosbag...'.format(i))
         f_lsit = f.as_posix().split('/')
         bag_count = f_lsit[-1][:3]
         variation = f_lsit[-3]
         target_dir = os.path.join(target_dir_base, 'default', variation, 'episodes', bag_count)
-        convert_rosbag(f.as_posix(), target_dir, config_file)
+        arg_list.append((f.as_posix(), target_dir, config_file))
+    proc = Pool(n_multiprocess)
+    result = proc.map(convert_rosbag, arg_list)
+
 
 if __name__ == '__main__':
     app.run(main)
