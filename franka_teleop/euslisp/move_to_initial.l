@@ -15,6 +15,8 @@
     (send *ri* :recover-error))
   (send *ri* :angle-vector (send *robot* :angle-vector) 3000)
   (send *ri* :wait-interpolation)
+  (send *ri* :start-grasp :larm)
+  (send *ri* :start-grasp :rarm)
   (send *ri* :stop-grasp :larm)
   (send *ri* :stop-grasp :rarm))
 

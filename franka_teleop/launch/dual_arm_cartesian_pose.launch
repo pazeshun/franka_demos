@@ -9,8 +9,8 @@
   <!-- argments -->
   <arg name="robot_id" default="dual_panda" />
   <arg name="rviz" default="true" />
-  <arg name="rarm_ip" default="172.16.0.2"/>
-  <arg name="larm_ip" default="172.16.1.2"/>
+  <arg name="rarm_ip" default="172.16.0.100"/>
+  <arg name="larm_ip" default="172.16.0.200"/>
   <arg name="robot_ips" value="{rarm/robot_ip: $(arg rarm_ip), larm/robot_ip: $(arg larm_ip)}" />
   <!-- <arg name="start_bilateral" default="false"/> -->
   <arg name="start_bilateral" default="false"/>
@@ -73,6 +73,5 @@
   <!-- USB to Panda connection -->
   <node pkg="franka_teleop" type="phantom_to_panda.py" name="phantom_to_panda" output="screen" args="--connect_pose --connect_force" if="$(arg start_bilateral)"/>
   <node pkg="franka_teleop" type="phantom_to_panda.py" name="phantom_to_panda" output="screen" args="--noconnect_pose --noconnect_force" unless="$(arg start_bilateral)"/>
-
 
 </launch>

@@ -93,6 +93,7 @@ class SingleArmHandler(object):
         error_topic = '/{}/{}/has_error'.format(self.robot_id, self.arm_name)
         status_overlay_topic = '/{}/{}/status_overlay'.format(self.robot_id, self.arm_name)
         self.current_arm_frame_sub = rospy.Subscriber(current_frame_topic, PoseStamped, self.current_frame_cb)
+        rospy.logwarn("Waiting for {}".format(current_frame_topic))
         rospy.wait_for_message(current_frame_topic, PoseStamped)
 
         self.device_state_sub = rospy.Subscriber(dev_topic, OmniState, self.device_state_sub)
